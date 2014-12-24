@@ -21,13 +21,6 @@ end
 function geometry.segment_intersection(ax, ay, bx, by, cx, cy, dx, dy)
 	-- Point where lines AB and CD intersect.
 	-- http://www.faqs.org/faqs/graphics/algorithms-faq/ (1.03)
-	--      (Ay-Cy)(Dx-Cx)-(Ax-Cx)(Dy-Cy)
-    --  r = -----------------------------  (eqn 1)
-    --      (Bx-Ax)(Dy-Cy)-(By-Ay)(Dx-Cx)
-    --      
-    --      (Ay-Cy)(Bx-Ax)-(Ax-Cx)(By-Ay)
-    --  s = -----------------------------  (eqn 2)
-    --      (Bx-Ax)(Dy-Cy)-(By-Ay)(Dx-Cx)
     local r_num = (ay - cy) * (dx - cx) - (ax - cx) * (dy - cy)
     local r_den = (bx - ax) * (dy - cy) - (by - ay) * (dx - cx)
     local s_num = (ay - cy) * (bx - ax) - (ax - cx) * (by - ay)
@@ -49,6 +42,7 @@ end
 assert(geometry.normalize_angle(0) == 0)
 assert(geometry.normalize_angle(math.pi) == math.pi)
 assert(geometry.normalize_angle(-math.pi) == math.pi)
+assert(geometry.normalize_angle(math.pi * 8) == 0)
 
 -- Test shortest_angle_to_angle
 assert(geometry.shortest_angle_to_angle(0, 0) == 0)
@@ -60,8 +54,15 @@ assert(geometry.shortest_angle_to_angle(math.pi - 0.5, math.pi + 0.5) == 1)
 assert(geometry.shortest_angle_to_angle(math.pi + 0.5, math.pi - 0.5) == -1)
 
 -- Test segment_intersection
-assert(geometry.segment_intersection(-1, 0, 1, 0, 0, -1, 0, 1) == 0, 0)
-assert(geometry.segment_intersection(-1, 0, 1, 0, -1, 1, 1, 1) == nil)
+local x, y = geometry.segment_intersection(-1, 0, 1, 0, 0, -1, 0, 1)
+assert(x == 0 and y == 0)
+x, y = geometry.segment_intersection(-2, -1, 0, 1, -1, 0, 1, 0)
+assert(x == -1 and y == 0)
+x, y = geometry.segment_intersection(-1, 0, 1, 0, -1, 1, 1, 1)
+assert(x == nil and y == nil)
+-- x, y = geometry.segment_intersection(10, 590, 790, 590, 400, 300, 220, 1242)
+-- print(x, y)
+-- assert(false)
 
 
 return geometry

@@ -1,6 +1,9 @@
 local geometry = require("geometry")
+local spookyghost = require("spookyghost")
 
 function love.load()
+    time = 0.0
+    final_time = nil
     ship = {
         angle = 0.0,
         pos_x = 0.0,
@@ -12,10 +15,20 @@ function love.load()
         turning_back = false,
         accelerating = false
     }
+    spooky_ghosts = {
+        spookyghost.new(-2000, 6200, 255, 255, 180),
+        spookyghost.new(59000, 6800, 255, 180, 180),
+        spookyghost.new(64000, 9900, 180, 255, 180),
+        spookyghost.new(-190000, -70000, 180, 255, 255)
+    }
     ship_image = love.graphics.newImage("ship.png")
     arrow_image = love.graphics.newImage("arrow.png")
     marker_image = love.graphics.newImage("marker.png")
-    love.graphics.setNewFont(40)
+    spooky_ghost_image = love.graphics.newImage("spooky.png")
+    marker_font = love.graphics.newFont("fonts/ArchivoBlack-Regular.otf", 20)
+    intro_font = love.graphics.newFont("fonts/AllerDisplay.ttf", 80)
+    intro_font_small = love.graphics.newFont("fonts/AllerDisplay.ttf", 40)
+    -- love.graphics.setNewFont(40)
 end
 
 function love.keypressed(key)
@@ -55,9 +68,21 @@ function world_to_screen(x, y)
 end
 
 function love.update(dt)
+    time = time + dt
     if dt > 1 / 30 then
         dt = 1 / 30
     end
+    
+    local alive_ghost_count = 0
+    for _, ghost in ipairs(spooky_ghosts) do
+        if ghost.health > 0.0 then
+            alive_ghost_count = alive_ghost_count + 1
+        end
+    end
+    if alive_ghost_count == 0 and final_time == nil then
+        final_time = time
+    end
+
     
     if ship.turning_back then
         travelling_angle = math.atan2(ship.vel_y, ship.vel_x)
@@ -84,6 +109,17 @@ function love.update(dt)
     end
     ship.pos_x = ship.pos_x + ship.vel_x
     ship.pos_y = ship.pos_y + ship.vel_y
+    
+    for _, ghost in ipairs(spooky_ghosts) do
+        local dist = math.sqrt((ship.pos_x - ghost.pos_x) ^ 2 + 
+                               (ship.pos_y - ghost.pos_y) ^ 2)
+        if dist < 150 then
+            ghost.harmed = true
+            ghost.health = ghost.health - dt / 2
+        else
+            ghost.harmed = false
+        end
+    end
 end
 
 function draw_grid(min_x, max_x, min_y, max_y, dim)
@@ -99,9 +135,13 @@ function draw_grid(min_x, max_x, min_y, max_y, dim)
     end
 end
 
+function new_ghost(x, y, r, g, b)
+    local ghost = {pos_x}
+end
+
 function draw_marker(x, y)
     -- Need four lines for the screen borders
-    local margin = 30
+    local margin = 40
     local screen_width = love.graphics.getWidth()
     local screen_height = love.graphics.getHeight()
     local edges = {}
@@ -119,7 +159,7 @@ function draw_marker(x, y)
     local center_y = screen_height / 2
     local target_x, target_y = world_to_screen(x, y)
     local intersect_x, intersect_y
-    for _, values in pairs(edges) do
+    for edge, values in pairs(edges) do
         intersect_x, intersect_y = geometry.segment_intersection(
                         values.ax, values.ay, values.bx, values.by,
                         center_x, center_y, target_x, target_y)
@@ -133,6 +173,15 @@ function draw_marker(x, y)
         angle = math.atan2(center_y - target_y, center_x - target_x) - math.pi
         local width, height = marker_image:getDimensions()
         love.graphics.draw(marker_image, intersect_x, intersect_y, angle, 1.0, 1.0, width/2, height/2)
+        
+        distance = math.sqrt((target_x - center_x) ^ 2 + (target_y - center_y) ^ 2)
+        if distance < 10000 then
+            distance_str = string.format("%0.1fKM", distance / 1000)
+        else
+            distance_str = string.format("%0.0fKM", distance / 1000)
+        end
+        love.graphics.setFont(marker_font)
+        love.graphics.printf(distance_str, intersect_x - 100, intersect_y + 10, 200, "center")
     end
     
     
@@ -155,7 +204,7 @@ function love.draw()
     love.graphics.setLineWidth(160)
     love.graphics.setLineJoin("bevel")
     love.graphics.setColor(20, 60, 40)
-    love.graphics.line(0, 0, 600, 600, 1200, 600)
+    -- love.graphics.line(0, 0, 600, 600, 1200, 600)
 
     -- Draw grid
     love.graphics.setLineWidth(1)
@@ -174,26 +223,73 @@ function love.draw()
     -- for val = -10000, 10000, 200 do
     --  love.graphics.line(-10000, val, 10000, val)
     -- end
-    
-    
-    -- draw_marker(0, 0)
-    
-    -- draw_marker(ship.pos_x, ship.pos_y, 50000, -23000, ship.pos_x + 200, ship.pos_y + 200)
-    -- draw_marker(ship.pos_x, ship.pos_y, -200000, 170000, ship.pos_x - 200, ship.pos_y + 200)
-    -- draw_marker(ship.pos_x, ship.pos_y, -2000000, 1700000, ship.pos_x - 200, ship.pos_y - 200)
-    
+        
+    local ghost_width, ghost_height = spooky_ghost_image:getDimensions()
+    for _, ghost in ipairs(spooky_ghosts) do
+        if ghost.harmed then
+            love.graphics.setColor(255, 0, 0)
+        else
+            love.graphics.setColor(ghost.col_r, ghost.col_g, ghost.col_b)
+        end
+        
+        if ghost.health > 0.0 then
+            love.graphics.draw(spooky_ghost_image, ghost.pos_x, ghost.pos_y,
+                               0.0, 1.0, 1.0, ghost_width / 2, ghost_height / 2)
+        end
+    end
+
     love.graphics.setColor(255, 255, 255)
     love.graphics.draw(ship_image, ship.pos_x, ship.pos_y, ship.angle + math.pi / 2, 1.0, 1.0, width/2, height/2)
     love.graphics.pop()
     
+    
+    -- Draw text
+    local screen_width = love.graphics.getWidth()
+    local screen_height = love.graphics.getHeight()
+    
+    if time < 6.0 then
+        local opacity = 1.0
+        if time > 5.0 then
+            opacity = 6.0 - time
+        end
+        love.graphics.setColor(255, 255, 255, opacity * 255)
+        love.graphics.setFont(intro_font)
+        love.graphics.printf("Mission One", 0, screen_height / 7, screen_width, "center")
+        love.graphics.setFont(intro_font_small)
+        love.graphics.printf("Dismiss the Spooky Ghosts", 0, screen_height * (5 / 7), screen_width, "center")
+    end
+    
+    -- Success text
+    local alive_ghost_count = 0
+    for _, ghost in ipairs(spooky_ghosts) do
+        if ghost.health > 0.0 then
+            alive_ghost_count = alive_ghost_count + 1
+        end
+    end
+    if final_time ~= nil then
+        love.graphics.setColor(255, 255, 255)
+        love.graphics.setFont(intro_font)
+        love.graphics.printf("Mission Complete", 0, screen_height / 7, screen_width, "center")
+        love.graphics.setFont(intro_font_small)
+        time_str = string.format("Time taken: %0.1fs", final_time)
+        love.graphics.printf(time_str, 0, screen_height * (5 / 7), screen_width, "center")
+    end
 
     
     -- Screen space stuff
-    love.graphics.setColor(255, 200, 200)
-    draw_marker(50000, -23000)
-    love.graphics.setColor(180, 180, 255)
-    draw_marker(-5000, -3000)
-    love.graphics.setColor(180, 255, 180)
-    draw_marker(-500000, -23000)
+    for _, ghost in ipairs(spooky_ghosts) do
+        if ghost.health > 0.0 then
+            love.graphics.setColor(ghost.col_r, ghost.col_g, ghost.col_b)
+            draw_marker(ghost.pos_x, ghost.pos_y)
+        end
+    end
+
+    
+    -- love.graphics.setColor(255, 200, 200)
+    -- draw_marker(50000, -23000)
+    -- love.graphics.setColor(180, 180, 255)
+    -- draw_marker(-5000, -3000)
+    -- love.graphics.setColor(180, 255, 180)
+    -- draw_marker(-500000, -23000)
 
 end

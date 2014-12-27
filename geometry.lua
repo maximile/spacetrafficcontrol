@@ -38,6 +38,12 @@ function geometry.segment_intersection(ax, ay, bx, by, cx, cy, dx, dy)
     return px, py
 end
 
+function geometry.distance_to_accelerate(initial_speed, target_speed, acceleration)
+	-- How much space it'll take to change speed
+	-- v^2 = u^2 + 2as
+	return (target_speed ^ 2 - initial_speed ^ 2) / (-2 * acceleration)
+end
+
 -- Test normalize_angle
 assert(geometry.normalize_angle(0) == 0)
 assert(geometry.normalize_angle(math.pi) == math.pi)
@@ -53,6 +59,9 @@ assert(geometry.shortest_angle_to_angle(0, 2 * math.pi - 1) == -1)
 assert(geometry.shortest_angle_to_angle(math.pi - 0.5, math.pi + 0.5) == 1)
 assert(geometry.shortest_angle_to_angle(math.pi + 0.5, math.pi - 0.5) == -1)
 
+-- Test distance_to_accelerate
+-- TODO:
+
 -- Test segment_intersection
 local x, y = geometry.segment_intersection(-1, 0, 1, 0, 0, -1, 0, 1)
 assert(x == 0 and y == 0)
@@ -61,7 +70,6 @@ assert(x == -1 and y == 0)
 x, y = geometry.segment_intersection(-1, 0, 1, 0, -1, 1, 1, 1)
 assert(x == nil and y == nil)
 -- x, y = geometry.segment_intersection(10, 590, 790, 590, 400, 300, 220, 1242)
--- print(x, y)
 -- assert(false)
 
 

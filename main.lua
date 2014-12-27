@@ -10,6 +10,8 @@ function love.load()
         pos_y = 0.0,
         vel_x = 0.0,
         vel_y = 0.0,
+        acceleration = 0.2,
+        turn_rate = 4.0,
         turning_left = false,
         turning_right = false,
         turning_back = false,
@@ -88,24 +90,24 @@ function love.update(dt)
         travelling_angle = math.atan2(ship.vel_y, ship.vel_x)
         target_angle = travelling_angle + math.pi
         ideal_turn = geometry.shortest_angle_to_angle(ship.angle, target_angle)
-        if ideal_turn > (4.0 * dt) then
-            ideal_turn = 4.0 * dt
-        elseif ideal_turn < (-4.0 * dt) then
-            ideal_turn = -4.0 * dt
+        if ideal_turn > (ship.turn_rate * dt) then
+            ideal_turn = ship.turn_rate * dt
+        elseif ideal_turn < (-ship.turn_rate * dt) then
+            ideal_turn = -ship.turn_rate * dt
         end
         ship.angle = ship.angle + ideal_turn
     else
         if ship.turning_right then
-            ship.angle = ship.angle + 4.0 * dt
+            ship.angle = ship.angle + ship.turn_rate * dt
         end
         if ship.turning_left then
-            ship.angle = ship.angle - 4.0 * dt
+            ship.angle = ship.angle - ship.turn_rate * dt
         end
     end
     
     if ship.accelerating then
-        ship.vel_x = ship.vel_x + math.cos(ship.angle) * 0.2
-        ship.vel_y = ship.vel_y + math.sin(ship.angle) * 0.2
+        ship.vel_x = ship.vel_x + math.cos(ship.angle) * ship.acceleration
+        ship.vel_y = ship.vel_y + math.sin(ship.angle) * ship.acceleration
     end
     ship.pos_x = ship.pos_x + ship.vel_x
     ship.pos_y = ship.pos_y + ship.vel_y
@@ -180,6 +182,19 @@ function draw_marker(x, y)
         else
             distance_str = string.format("%0.0fKM", distance / 1000)
         end
+        
+        -- Find which color to draw with - red if we're going to miss it,
+        -- yellow if we need to slow down soon.
+        local travelling_angle = math.atan2(ship.vel_y, ship.vel_x)
+        local reverse_angle = travelling_angle + math.pi
+        local angle_to_turn = geometry.shortest_angle_to_angle(ship.angle, reverse_angle)
+        local time_to_turn = angle_to_turn / ship.turn_rate
+        speed = math.sqrt(ship.vel_x ^ 2 + ship.vel_y ^ 2)
+        required_dist = geometry.distance_to_accelerate(speed, 0, ship.acceleration)
+        if required_dist > distance then
+            love.graphics.setColor(255, 0, 0)
+        end
+        
         love.graphics.setFont(marker_font)
         love.graphics.printf(distance_str, intersect_x - 100, intersect_y + 10, 200, "center")
     end

@@ -1,22 +1,26 @@
+require("strict")
 local geometry = require("geometry")
 local spookyghost = require("spookyghost")
+local ship = require("ship")
+
+time = 0.0
+final_time = nil
+player_ship = ship.Ship.new()
+spooky_ghosts = nil
+
+ship_image = nil
+arrow_image = nil
+marker_image = nil
+spooky_ghost_image = nil
+marker_font = nil
+intro_font = nil
+intro_font_small = nil
 
 function love.load()
     time = 0.0
     final_time = nil
-    ship = {
-        angle = 0.0,
-        pos_x = 0.0,
-        pos_y = 0.0,
-        vel_x = 0.0,
-        vel_y = 0.0,
-        acceleration = 0.2,
-        turn_rate = 4.0,
-        turning_left = false,
-        turning_right = false,
-        turning_back = false,
-        accelerating = false
-    }
+    player_ship = ship.Ship.new()
+    
     spooky_ghosts = {
         spookyghost.new(-2000, 6200, 255, 255, 180),
         spookyghost.new(59000, 6800, 255, 180, 180),
@@ -35,37 +39,37 @@ end
 
 function love.keypressed(key)
     if key == "left" then
-        ship.turning_left = true
+        player_ship.turn_left = true
     end
     if key == "right" then
-        ship.turning_right = true
+        player_ship.turn_right = true
     end
     if key == "up" then
-        ship.accelerating = true
+        player_ship.accelerate = true
     end
     if key == "down" then
-        ship.turning_back = true
+        player_ship.turn_back = true
     end
 end
 
 function love.keyreleased(key)
     if key == "left" then
-        ship.turning_left = false
+        player_ship.turn_left = false
     end
     if key == "right" then
-        ship.turning_right = false
+        player_ship.turn_right = false
     end
     if key == "up" then
-        ship.accelerating = false
+        player_ship.accelerate = false
     end
     if key == "down" then
-        ship.turning_back = false
+        player_ship.turn_back = false
     end
 end
 
 function world_to_screen(x, y)
-    x = x + (-ship.pos_x + love.graphics.getWidth() / 2)
-    y = y + (-ship.pos_y + love.graphics.getHeight() / 2)
+    x = x + (-player_ship.pos_x + love.graphics.getWidth() / 2)
+    y = y + (-player_ship.pos_y + love.graphics.getHeight() / 2)
     return x, y
 end
 
@@ -84,37 +88,12 @@ function love.update(dt)
     if alive_ghost_count == 0 and final_time == nil then
         final_time = time
     end
-
     
-    if ship.turning_back then
-        travelling_angle = math.atan2(ship.vel_y, ship.vel_x)
-        target_angle = travelling_angle + math.pi
-        ideal_turn = geometry.shortest_angle_to_angle(ship.angle, target_angle)
-        if ideal_turn > (ship.turn_rate * dt) then
-            ideal_turn = ship.turn_rate * dt
-        elseif ideal_turn < (-ship.turn_rate * dt) then
-            ideal_turn = -ship.turn_rate * dt
-        end
-        ship.angle = ship.angle + ideal_turn
-    else
-        if ship.turning_right then
-            ship.angle = ship.angle + ship.turn_rate * dt
-        end
-        if ship.turning_left then
-            ship.angle = ship.angle - ship.turn_rate * dt
-        end
-    end
-    
-    if ship.accelerating then
-        ship.vel_x = ship.vel_x + math.cos(ship.angle) * ship.acceleration
-        ship.vel_y = ship.vel_y + math.sin(ship.angle) * ship.acceleration
-    end
-    ship.pos_x = ship.pos_x + ship.vel_x
-    ship.pos_y = ship.pos_y + ship.vel_y
+    player_ship:update(dt)
     
     for _, ghost in ipairs(spooky_ghosts) do
-        local dist = math.sqrt((ship.pos_x - ghost.pos_x) ^ 2 + 
-                               (ship.pos_y - ghost.pos_y) ^ 2)
+        local dist = math.sqrt((player_ship.pos_x - ghost.pos_x) ^ 2 + 
+                               (player_ship.pos_y - ghost.pos_y) ^ 2)
         if dist < 150 then
             ghost.harmed = true
             ghost.health = ghost.health - dt / 2
@@ -125,13 +104,13 @@ function love.update(dt)
 end
 
 function draw_grid(min_x, max_x, min_y, max_y, dim)
-    start_x = math.floor(min_x / dim) * dim
-    end_x = math.floor(max_x / dim) * dim
+    local start_x = math.floor(min_x / dim) * dim
+    local end_x = math.floor(max_x / dim) * dim
     for x = start_x, end_x, dim do
         love.graphics.line(x, min_y, x, max_y)
     end
-    start_y = math.floor(min_y / dim) * dim
-    end_y = math.floor(max_y / dim) * dim
+    local start_y = math.floor(min_y / dim) * dim
+    local end_y = math.floor(max_y / dim) * dim
     for y = start_y, end_y, dim do
         love.graphics.line(min_x, y, max_x, y)
     end
@@ -172,11 +151,12 @@ function draw_marker(x, y)
     
     -- Intersection? Draw a marker
     if intersect_x ~= nil then
-        angle = math.atan2(center_y - target_y, center_x - target_x) - math.pi
+        local angle = math.atan2(center_y - target_y, center_x - target_x) - math.pi
         local width, height = marker_image:getDimensions()
         love.graphics.draw(marker_image, intersect_x, intersect_y, angle, 1.0, 1.0, width/2, height/2)
         
-        distance = math.sqrt((target_x - center_x) ^ 2 + (target_y - center_y) ^ 2)
+        local distance = math.sqrt((target_x - center_x) ^ 2 + (target_y - center_y) ^ 2)
+        local distance_str = nil
         if distance < 10000 then
             distance_str = string.format("%0.1fKM", distance / 1000)
         else
@@ -185,12 +165,12 @@ function draw_marker(x, y)
         
         -- Find which color to draw with - red if we're going to miss it,
         -- yellow if we need to slow down soon.
-        local travelling_angle = math.atan2(ship.vel_y, ship.vel_x)
+        local travelling_angle = math.atan2(player_ship.vel_y, player_ship.vel_x)
         local reverse_angle = travelling_angle + math.pi
-        local angle_to_turn = geometry.shortest_angle_to_angle(ship.angle, reverse_angle)
-        local time_to_turn = angle_to_turn / ship.turn_rate
-        speed = math.sqrt(ship.vel_x ^ 2 + ship.vel_y ^ 2)
-        required_dist = geometry.distance_to_accelerate(speed, 0, ship.acceleration)
+        local angle_to_turn = geometry.shortest_angle_to_angle(player_ship.angle, reverse_angle)
+        local time_to_turn = angle_to_turn / player_ship.turn_rate
+        local speed = math.sqrt(player_ship.vel_x ^ 2 + player_ship.vel_y ^ 2)
+        local required_dist = geometry.distance_to_accelerate(speed, 0, player_ship.acceleration)
         if required_dist > distance then
             love.graphics.setColor(255, 0, 0)
         end
@@ -212,9 +192,9 @@ function draw_marker(x, y)
 end
 
 function love.draw()
-    width, height = ship_image:getDimensions()
+    local width, height = ship_image:getDimensions()
     love.graphics.push()
-    love.graphics.translate(-ship.pos_x + love.graphics.getWidth() / 2, -ship.pos_y + love.graphics.getHeight() / 2)
+    love.graphics.translate(-player_ship.pos_x + love.graphics.getWidth() / 2, -player_ship.pos_y + love.graphics.getHeight() / 2)
     
     love.graphics.setLineWidth(160)
     love.graphics.setLineJoin("bevel")
@@ -224,10 +204,10 @@ function love.draw()
     -- Draw grid
     love.graphics.setLineWidth(1)
     love.graphics.setColor(120, 120, 120)
-    min_x = ship.pos_x - love.graphics.getWidth() / 2
-    max_x = ship.pos_x + love.graphics.getWidth() / 2
-    min_y = ship.pos_y - love.graphics.getHeight() / 2
-    max_y = ship.pos_y + love.graphics.getHeight() / 2
+    local min_x = player_ship.pos_x - love.graphics.getWidth() / 2
+    local max_x = player_ship.pos_x + love.graphics.getWidth() / 2
+    local min_y = player_ship.pos_y - love.graphics.getHeight() / 2
+    local max_y = player_ship.pos_y + love.graphics.getHeight() / 2
     draw_grid(min_x, max_x, min_y, max_y, 200)
     
     -- -- grid_intensity_x = 
@@ -254,7 +234,7 @@ function love.draw()
     end
 
     love.graphics.setColor(255, 255, 255)
-    love.graphics.draw(ship_image, ship.pos_x, ship.pos_y, ship.angle + math.pi / 2, 1.0, 1.0, width/2, height/2)
+    love.graphics.draw(ship_image, player_ship.pos_x, player_ship.pos_y, player_ship.angle + math.pi / 2, 1.0, 1.0, width/2, height/2)
     love.graphics.pop()
     
     
@@ -286,7 +266,7 @@ function love.draw()
         love.graphics.setFont(intro_font)
         love.graphics.printf("Mission Complete", 0, screen_height / 7, screen_width, "center")
         love.graphics.setFont(intro_font_small)
-        time_str = string.format("Time taken: %0.1fs", final_time)
+        local time_str = string.format("Time taken: %0.1fs", final_time)
         love.graphics.printf(time_str, 0, screen_height * (5 / 7), screen_width, "center")
     end
 

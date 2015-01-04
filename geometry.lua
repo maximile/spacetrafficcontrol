@@ -30,7 +30,7 @@ function geometry.segment_intersection(ax, ay, bx, by, cx, cy, dx, dy)
     end
     local r = r_num / r_den
     local s = s_num / s_den
-    if r < 0 or r > 1 or s < 0 or s > 1 then
+    if r < 0 or r >= 1 or s < 0 or s >= 1 then
     	return nil
     end
     local px = ax + r * (bx - ax)

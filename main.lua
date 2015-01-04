@@ -2,19 +2,21 @@ require("strict")
 local geometry = require("geometry")
 local spookyghost = require("spookyghost")
 local ship = require("ship")
+local airspace = require("airspace")
 
 time = 0.0
 final_time = nil
 player_ship = ship.Ship.new()
 spooky_ghosts = nil
 
-ship_image = nil
 arrow_image = nil
 marker_image = nil
 spooky_ghost_image = nil
 marker_font = nil
 intro_font = nil
 intro_font_small = nil
+
+space = nil
 
 function love.load()
     time = 0.0
@@ -27,7 +29,10 @@ function love.load()
         spookyghost.new(64000, 9900, 180, 255, 180),
         spookyghost.new(-190000, -70000, 180, 255, 255)
     }
-    ship_image = love.graphics.newImage("ship.png")
+    space = airspace.Airspace.new()
+    space.max_speed = 500.0
+    space:set_points(200, 200, -200, 200, -200, 600)
+    
     arrow_image = love.graphics.newImage("arrow.png")
     marker_image = love.graphics.newImage("marker.png")
     spooky_ghost_image = love.graphics.newImage("spooky.png")
@@ -116,24 +121,21 @@ function draw_grid(min_x, max_x, min_y, max_y, dim)
     end
 end
 
-function new_ghost(x, y, r, g, b)
-    local ghost = {pos_x}
-end
-
 function draw_marker(x, y)
     -- Need four lines for the screen borders
     local margin = 40
+    local margin_bottom = 80
     local screen_width = love.graphics.getWidth()
     local screen_height = love.graphics.getHeight()
     local edges = {}
     edges["top"] = {ax=margin, ay=margin,
                       bx=screen_width - margin, by=margin}
-    edges["bottom"] = {ax=margin, ay=screen_height - margin,
-                         bx=screen_width - margin, by=screen_height - margin}
+    edges["bottom"] = {ax=margin, ay=screen_height - margin_bottom,
+                         bx=screen_width - margin, by=screen_height - margin_bottom}
     edges["left"] = {ax=margin, ay=margin,
-                       bx=margin, by=screen_height - margin}
+                       bx=margin, by=screen_height - margin_bottom}
     edges["right"] = {ax=screen_width - margin, ay=margin,
-                        bx=screen_width - margin, by=screen_height - margin}
+                        bx=screen_width - margin, by=screen_height - margin_bottom}
     
     -- Find where each line intersects the line from the player to the target
     local center_x = screen_width / 2
@@ -165,14 +167,25 @@ function draw_marker(x, y)
         
         -- Find which color to draw with - red if we're going to miss it,
         -- yellow if we need to slow down soon.
-        local travelling_angle = math.atan2(player_ship.vel_y, player_ship.vel_x)
-        local reverse_angle = travelling_angle + math.pi
-        local angle_to_turn = geometry.shortest_angle_to_angle(player_ship.angle, reverse_angle)
-        local time_to_turn = angle_to_turn / player_ship.turn_rate
-        local speed = math.sqrt(player_ship.vel_x ^ 2 + player_ship.vel_y ^ 2)
-        local required_dist = geometry.distance_to_accelerate(speed, 0, player_ship.acceleration)
+        local speed = player_ship:get_speed()
+        local required_dist = geometry.distance_to_accelerate(speed, 0,
+                                                    player_ship.acceleration)
+        local time_to_decision_dist = (distance - required_dist) / speed
+        local warning_time = 10.0
+        
         if required_dist > distance then
             love.graphics.setColor(255, 0, 0)
+        elseif time_to_decision_dist < warning_time then
+            love.graphics.setColor(255, 127, 0)
+            love.graphics.setLineWidth(2.0)
+            local progress_range = 70
+            local total_start_x = intersect_x - progress_range / 2
+            local total_end_x = intersect_x + progress_range / 2
+            local total_y = intersect_y + 36
+            local progress = time_to_decision_dist / warning_time
+            local progress_x = total_start_x + progress_range * progress
+            love.graphics.line(total_start_x, total_y, total_end_x, total_y)
+            love.graphics.line(progress_x, total_y, progress_x, total_y + 5)
         end
         
         love.graphics.setFont(marker_font)
@@ -192,15 +205,17 @@ function draw_marker(x, y)
 end
 
 function love.draw()
-    local width, height = ship_image:getDimensions()
     love.graphics.push()
     love.graphics.translate(-player_ship.pos_x + love.graphics.getWidth() / 2, -player_ship.pos_y + love.graphics.getHeight() / 2)
+    
+    love.graphics.setColor(255, 180, 180, 127)
+    space:draw()
     
     love.graphics.setLineWidth(160)
     love.graphics.setLineJoin("bevel")
     love.graphics.setColor(20, 60, 40)
     -- love.graphics.line(0, 0, 600, 600, 1200, 600)
-
+    
     -- Draw grid
     love.graphics.setLineWidth(1)
     love.graphics.setColor(120, 120, 120)
@@ -209,6 +224,11 @@ function love.draw()
     local min_y = player_ship.pos_y - love.graphics.getHeight() / 2
     local max_y = player_ship.pos_y + love.graphics.getHeight() / 2
     draw_grid(min_x, max_x, min_y, max_y, 200)
+    
+    -- Draw course marker
+    local course_x = math.cos(player_ship:get_course()) * 1000 + player_ship.pos_x
+    local course_y = math.sin(player_ship:get_course()) * 1000 + player_ship.pos_y
+    love.graphics.line(player_ship.pos_x, player_ship.pos_y, course_x, course_y)
     
     -- -- grid_intensity_x = 
     -- for val = math.floor(-ship.pos_x / 200) * 200 - 1000, math.floor(-ship.pos_x / 200) * 200 + 1000, 200 do
@@ -233,10 +253,13 @@ function love.draw()
         end
     end
 
-    love.graphics.setColor(255, 255, 255)
-    love.graphics.draw(ship_image, player_ship.pos_x, player_ship.pos_y, player_ship.angle + math.pi / 2, 1.0, 1.0, width/2, height/2)
+    if space:contains(player_ship.pos_x, player_ship.pos_y) then
+        love.graphics.setColor(255, 0, 0)
+    else
+        love.graphics.setColor(255, 255, 255)
+    end
+    player_ship:draw()
     love.graphics.pop()
-    
     
     -- Draw text
     local screen_width = love.graphics.getWidth()
@@ -278,6 +301,20 @@ function love.draw()
             draw_marker(ghost.pos_x, ghost.pos_y)
         end
     end
+    
+    love.graphics.setColor(255, 255, 255)
+    local speed_str = string.format("Speed: %0.1fm/s", player_ship:get_speed())
+    love.graphics.print(speed_str, 40, screen_height - 40)
+    local heading = math.deg(geometry.normalize_angle(player_ship.angle - math.pi / 2)) + 180
+    local heading_str = string.format("Heading: %03i°", heading)
+    love.graphics.print(heading_str, 280, screen_height - 40)
+    local course = math.deg(math.atan2(player_ship.vel_y, player_ship.vel_x) + math.pi / 2)
+    if course < 0 then
+        course = course + 360
+    end
+    local course_str = string.format("Course: %03i°", course)
+    love.graphics.print(course_str, 500, screen_height - 40)
+
 
     
     -- love.graphics.setColor(255, 200, 200)

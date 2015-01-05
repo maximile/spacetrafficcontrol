@@ -3,10 +3,12 @@ local geometry = require("geometry")
 local spookyghost = require("spookyghost")
 local ship = require("ship")
 local airspace = require("airspace")
+local json = require("json")
+local inspect = require("inspect")
 
 time = 0.0
 final_time = nil
-player_ship = ship.Ship.new()
+player_ship = nil
 spooky_ghosts = nil
 
 arrow_image = nil
@@ -21,7 +23,7 @@ space = nil
 function love.load()
     time = 0.0
     final_time = nil
-    player_ship = ship.Ship.new()
+    player_ship = ship.Ship.new("default_ship.json")
     
     spooky_ghosts = {
         spookyghost.new(-2000, 6200, 255, 255, 180),
@@ -169,7 +171,7 @@ function draw_marker(x, y)
         -- yellow if we need to slow down soon.
         local speed = player_ship:get_speed()
         local required_dist = geometry.distance_to_accelerate(speed, 0,
-                                                    player_ship.acceleration)
+                                                player_ship:get_acceleration())
         local time_to_decision_dist = (distance - required_dist) / speed
         local warning_time = 10.0
         
@@ -209,7 +211,7 @@ function love.draw()
     love.graphics.translate(-player_ship.pos_x + love.graphics.getWidth() / 2, -player_ship.pos_y + love.graphics.getHeight() / 2)
     
     love.graphics.setColor(255, 180, 180, 127)
-    space:draw()
+    -- space:draw()
     
     love.graphics.setLineWidth(160)
     love.graphics.setLineJoin("bevel")
@@ -252,12 +254,13 @@ function love.draw()
                                0.0, 1.0, 1.0, ghost_width / 2, ghost_height / 2)
         end
     end
-
-    if space:contains(player_ship.pos_x, player_ship.pos_y) then
-        love.graphics.setColor(255, 0, 0)
-    else
-        love.graphics.setColor(255, 255, 255)
-    end
+    
+    love.graphics.setColor(255, 255, 255)
+    -- if space:contains(player_ship.pos_x, player_ship.pos_y) then
+        -- love.graphics.setColor(255, 0, 0)
+    -- else
+        -- love.graphics.setColor(255, 255, 255)
+    -- end
     player_ship:draw()
     love.graphics.pop()
     
@@ -303,6 +306,7 @@ function love.draw()
     end
     
     love.graphics.setColor(255, 255, 255)
+    love.graphics.setFont(marker_font)
     local speed_str = string.format("Speed: %0.1fm/s", player_ship:get_speed())
     love.graphics.print(speed_str, 40, screen_height - 40)
     local heading = math.deg(geometry.normalize_angle(player_ship.angle - math.pi / 2)) + 180

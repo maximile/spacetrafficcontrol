@@ -1,0 +1,28 @@
+{
+	"name": "Cool Ship",
+	"image": "ship.png",
+	"acceleration": 65,
+	"turn_rate": 2.4,
+	"engines": {
+		"left": {
+			"position": [-30, -45],
+			"particle_image": "exhaust.png",
+			"particle_lifetime": [0.2, 1.0],
+			"particle_spread": 0.2,
+			"particle_area_spread": ["uniform", 2, 2],
+			"particle_colors": [255, 255, 255, 255, 255, 255, 255, 0],
+			"particle_emission_rate": 100.0,
+			"particle_size": [0.2, 1.0]
+		},
+		"right": {
+			"position": [-30, 45],
+			"particle_image": "exhaust.png",
+			"particle_lifetime": [0.2, 1.0],
+			"particle_spread": 0.2,
+			"particle_area_spread": ["uniform", 2, 2],
+			"particle_colors": [255, 255, 255, 255, 255, 255, 255, 0],
+			"particle_emission_rate": 100.0,
+			"particle_size": [0.2, 1.0]
+		}
+	}
+}

@@ -17,6 +17,7 @@ spooky_ghost_image = nil
 marker_font = nil
 intro_font = nil
 intro_font_small = nil
+star_image = nil
 
 space = nil
 
@@ -24,6 +25,7 @@ function love.load()
     time = 0.0
     final_time = nil
     player_ship = ship.Ship.new("default_ship.json")
+    star_image = love.graphics.newImage("star.png")
     
     spooky_ghosts = {
         spookyghost.new(-2000, 6200, 255, 255, 180),
@@ -213,18 +215,21 @@ function love.draw()
     love.graphics.setColor(255, 180, 180, 127)
     -- space:draw()
     
-    love.graphics.setLineWidth(160)
-    love.graphics.setLineJoin("bevel")
-    love.graphics.setColor(20, 60, 40)
+    -- love.graphics.setLineWidth(160)
+    -- love.graphics.setLineJoin("bevel")
+    -- love.graphics.setColor(20, 60, 40)
     -- love.graphics.line(0, 0, 600, 600, 1200, 600)
+    
     
     -- Draw grid
     love.graphics.setLineWidth(1)
-    love.graphics.setColor(120, 120, 120)
     local min_x = player_ship.pos_x - love.graphics.getWidth() / 2
     local max_x = player_ship.pos_x + love.graphics.getWidth() / 2
     local min_y = player_ship.pos_y - love.graphics.getHeight() / 2
     local max_y = player_ship.pos_y + love.graphics.getHeight() / 2
+    draw_stars(min_x, min_y, max_x, max_y)
+
+    love.graphics.setColor(120, 120, 120)
     draw_grid(min_x, max_x, min_y, max_y, 200)
     
     -- Draw course marker
@@ -327,5 +332,34 @@ function love.draw()
     -- draw_marker(-5000, -3000)
     -- love.graphics.setColor(180, 255, 180)
     -- draw_marker(-500000, -23000)
+
+end
+
+function draw_stars(min_x, min_y, max_x, max_y)
+    love.graphics.setColor(255, 255, 255)
+    local star_width, star_height = star_image:getDimensions()
+    min_x = min_x - star_width
+    max_x = max_x + star_width
+    min_y = min_y - star_width
+    max_y = max_y + star_width
+
+    local star_offset_x = star_width / 2
+    local star_offset_y = star_height / 2
+    local dim = 20
+    
+    local start_x = math.floor(min_x / dim) * dim
+    local end_x = math.floor(max_x / dim) * dim
+    for x = start_x, end_x, dim do
+        local start_y = math.floor(min_y / dim) * dim
+        local end_y = math.floor(max_y / dim) * dim
+        for y = start_y, end_y, dim do
+            local scale = love.math.noise(x / 1000.0, y / 1000.0)
+            local offset_x = love.math.noise(x, y) * dim * 2 - dim
+            local offset_y = love.math.noise(y, x) * dim * 2 - dim
+            love.graphics.draw(star_image, x + offset_x, y + offset_y,
+                               0.0, scale, scale, star_offset_x, star_offset_y)
+        end 
+    end
+
 
 end

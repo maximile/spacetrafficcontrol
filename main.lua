@@ -18,6 +18,13 @@ marker_font = nil
 intro_font = nil
 intro_font_small = nil
 star_image = nil
+star_blue_large_image = nil
+star_blue_med_image = nil
+star_blue_small_image = nil
+star_red_large_image = nil
+star_red_med_image = nil
+star_red_small_image = nil
+player_joystick = nil
 
 space = nil
 
@@ -26,6 +33,12 @@ function love.load()
     final_time = nil
     player_ship = ship.Ship.new("default_ship.json")
     star_image = love.graphics.newImage("star.png")
+    star_blue_large_image = love.graphics.newImage("star_blue.png")
+    star_blue_med_image = love.graphics.newImage("star_blue_med.png")
+    star_blue_small_image = love.graphics.newImage("star_blue_small.png")
+    star_red_large_image = love.graphics.newImage("star_red_large.png")
+    star_red_med_image = love.graphics.newImage("star_red_med.png")
+    star_red_small_image = love.graphics.newImage("star_red_small.png")
     
     spooky_ghosts = {
         spookyghost.new(-2000, 6200, 255, 255, 180),
@@ -44,6 +57,12 @@ function love.load()
     intro_font = love.graphics.newFont("fonts/AllerDisplay.ttf", 80)
     intro_font_small = love.graphics.newFont("fonts/AllerDisplay.ttf", 40)
     -- love.graphics.setNewFont(40)
+    
+    local connected_joysticks = love.joystick.getJoysticks()
+    if #connected_joysticks == 1 then
+        player_joystick = connected_joysticks[1]
+        print(player_joystick:getName())
+    end
 end
 
 function love.keypressed(key)
@@ -54,7 +73,7 @@ function love.keypressed(key)
         player_ship.turn_right = true
     end
     if key == "up" then
-        player_ship.accelerate = true
+        player_ship.accelerate = 1.0
     end
     if key == "down" then
         player_ship.turn_back = true
@@ -69,7 +88,7 @@ function love.keyreleased(key)
         player_ship.turn_right = false
     end
     if key == "up" then
-        player_ship.accelerate = false
+        player_ship.accelerate = 0.0
     end
     if key == "down" then
         player_ship.turn_back = false
@@ -86,6 +105,19 @@ function love.update(dt)
     time = time + dt
     if dt > 1 / 30 then
         dt = 1 / 30
+    end
+    
+    if player_joystick then
+        player_ship.accelerate = player_joystick:getGamepadAxis("triggerright")
+        local turn_x = player_joystick:getGamepadAxis("leftx")
+        local turn_y = player_joystick:getGamepadAxis("lefty")
+        local target_angle = math.atan2(turn_y, turn_x)
+        local turn_speed = math.sqrt(turn_x ^ 2 + turn_y ^ 2)
+        if turn_speed < 0.5 then
+            player_ship.target_angle = nil
+        else
+            player_ship.target_angle = target_angle
+        end
     end
     
     local alive_ghost_count = 0
@@ -227,7 +259,7 @@ function love.draw()
     local max_x = player_ship.pos_x + love.graphics.getWidth() / 2
     local min_y = player_ship.pos_y - love.graphics.getHeight() / 2
     local max_y = player_ship.pos_y + love.graphics.getHeight() / 2
-    draw_stars(min_x, min_y, max_x, max_y)
+    draw_starfield(min_x, max_x, min_y, max_y)
 
     love.graphics.setColor(120, 120, 120)
     draw_grid(min_x, max_x, min_y, max_y, 200)
@@ -335,31 +367,53 @@ function love.draw()
 
 end
 
-function draw_stars(min_x, min_y, max_x, max_y)
+function draw_starfield(min_x, max_x, min_y, max_y)
+    love.graphics.setBlendMode("additive")
+    love.graphics.setColor(240, 255, 255, 20)
+    -- draw_stars(star_image, 400, min_x, max_x, min_y, max_y, 10.0, 50.0)
     love.graphics.setColor(255, 255, 255)
-    local star_width, star_height = star_image:getDimensions()
-    min_x = min_x - star_width
-    max_x = max_x + star_width
-    min_y = min_y - star_width
-    max_y = max_y + star_width
+    draw_stars(star_blue_large_image, 180, min_x, max_x, min_y, max_y)
+    draw_stars(star_red_large_image, 181, min_x, max_x, min_y, max_y)
+    draw_stars(star_blue_med_image, 132, min_x, max_x, min_y, max_y)
+    draw_stars(star_red_med_image, 133, min_x, max_x, min_y, max_y)
+    draw_stars(star_blue_small_image, 14, min_x, max_x, min_y, max_y)
+    draw_stars(star_red_small_image, 15, min_x, max_x, min_y, max_y)
+    love.graphics.setBlendMode("alpha")
+end
+
+function draw_stars(image, spacing, min_x, max_x, min_y, max_y, scale_min, scale_max)
+    local star_width, star_height = image:getDimensions()
+    scale_max = scale_max or 1.0
+    scale_min = scale_min or 0.5
+    min_x = min_x - scale_max - spacing * 2
+    max_x = max_x + scale_max + spacing * 2
+    min_y = min_y - scale_max - spacing * 2
+    max_y = max_y + scale_max + spacing * 2
 
     local star_offset_x = star_width / 2
     local star_offset_y = star_height / 2
-    local dim = 20
+    local scale_range = scale_max - scale_min
     
-    local start_x = math.floor(min_x / dim) * dim
-    local end_x = math.floor(max_x / dim) * dim
-    for x = start_x, end_x, dim do
-        local start_y = math.floor(min_y / dim) * dim
-        local end_y = math.floor(max_y / dim) * dim
-        for y = start_y, end_y, dim do
-            local scale = love.math.noise(x / 1000.0, y / 1000.0)
-            local offset_x = love.math.noise(x, y) * dim * 2 - dim
-            local offset_y = love.math.noise(y, x) * dim * 2 - dim
-            love.graphics.draw(star_image, x + offset_x, y + offset_y,
-                               0.0, scale, scale, star_offset_x, star_offset_y)
+    local motion_blur_mult = player_ship:get_speed() * 0.001
+    local motion_blur_angle = player_ship:get_course() + math.pi / 2
+    love.graphics.setColor(255, 255, 255, 255 * math.min(1.0, 1000 / player_ship:get_speed()))
+
+
+    local start_x = math.floor(min_x / spacing) * spacing
+    local end_x = math.floor(max_x / spacing) * spacing
+    for x = start_x, end_x, spacing do
+        local start_y = math.floor(min_y / spacing) * spacing
+        local end_y = math.floor(max_y / spacing) * spacing
+        for y = start_y, end_y, spacing do
+            local scale = scale_min + love.math.noise(x / 1000.0, y / 1000.0) * scale_range
+            local offset_x = love.math.noise(x, y) * spacing * 2 - spacing
+            local offset_y = love.math.noise(y, x) * spacing * 2 - spacing
+            love.graphics.draw(image, x + offset_x, y + offset_y,
+                               motion_blur_angle, scale, math.max(scale, scale * motion_blur_mult), star_offset_x, star_offset_y)
         end 
     end
+end
 
-
+function love.joystickadded(new_joystick)
+    player_joystick = new_joystick
 end

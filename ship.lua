@@ -22,7 +22,7 @@ function ship.Ship.new(config_name)
 	-- Inputs
 	self.turn_left = false
 	self.turn_right = false
-	self.accelerate = false
+	self.accelerate = 0.0
 	self.turn_back = false
 	
 	-- Graphical stuff
@@ -70,13 +70,13 @@ end
 function ship.Ship.update(self, dt)
 	-- Handle inputs. Forwards:
 	if self.accelerate then
-		local speed_change = self.config.acceleration * dt
+		local speed_change = self.config.acceleration * dt * self.accelerate
         self.vel_x = self.vel_x + math.cos(self.angle) * speed_change
         self.vel_y = self.vel_y + math.sin(self.angle) * speed_change
         
         for engine_name, particle_system in pairs(self.engine_particle_systems) do
         	local emission_rate = self.config.engines[engine_name].particle_emission_rate
-        	particle_system:setEmissionRate(emission_rate)
+        	particle_system:setEmissionRate(emission_rate * self.accelerate)
         end
         -- self.particle_emitter_left:setEmissionRate(100.0)
         -- self.particle_emitter_right:setEmissionRate(100.0)
@@ -106,6 +106,16 @@ function ship.Ship.update(self, dt)
         if self.turn_left then
             self.angle = self.angle - self.config.turn_rate * dt
         end
+    end
+    
+    if self.target_angle then
+        local ideal_turn = geometry.shortest_angle_to_angle(self.angle, self.target_angle)
+        if ideal_turn > (self.config.turn_rate * dt) then
+            ideal_turn = self.config.turn_rate * dt
+        elseif ideal_turn < (-self.config.turn_rate * dt) then
+            ideal_turn = -self.config.turn_rate * dt
+        end
+        self.angle = self.angle + ideal_turn
     end
     
     -- Update position from velocity
